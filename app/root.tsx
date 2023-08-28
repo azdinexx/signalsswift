@@ -10,6 +10,7 @@ import appStyles from './styles/app.css';
 import tailwindcss from './styles/tailwind.css';
 import favicon from '../public/ss.png';
 import RootLayout from './layout/RootLayout';
+import {LoaderArgs} from '@shopify/remix-oxygen';
 
 export const links = () => {
   return [
@@ -27,7 +28,7 @@ export const links = () => {
   ];
 };
 
-export async function loader({context}) {
+export async function loader({context}: LoaderArgs) {
   const layout = await context.storefront.query(LAYOUT_QUERY);
   return {layout};
 }
