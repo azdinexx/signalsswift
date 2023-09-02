@@ -91,7 +91,7 @@ export const action: ActionFunction = async ({request, context}) => {
         status: 302,
         headers: {
           'Set-Cookie': await session.commit(),
-          Location: '/account',
+          Location: '/dashboard',
         },
       },
     );
@@ -104,7 +104,6 @@ export const action: ActionFunction = async ({request, context}) => {
 };
 
 import {V2_MetaFunction} from '@remix-run/react';
-import {useState} from 'react';
 
 export const meta: V2_MetaFunction = () => {
   return [{title: 'Sign Up'}];
@@ -113,7 +112,6 @@ export const meta: V2_MetaFunction = () => {
 function SignUp() {
   const data = useActionData<ActionResponse>();
   const error = data?.error || null;
-  const [loading, setLoading] = useState(false);
 
   return (
     <div className="grid place-items-center  grid-cols-1 grid-rows-1 mb-36 mt-20">
@@ -172,10 +170,9 @@ function SignUp() {
           />
           <button
             type="submit"
-            onClick={() => setLoading(true)}
             className="bg-blue-500 text-white py-2 rounded-md"
           >
-            {loading ? 'Loading...' : error ? 'Sign Up' : 'Sign Up'}
+            Sign Up
           </button>
         </Form>
         <p className="py-4">
