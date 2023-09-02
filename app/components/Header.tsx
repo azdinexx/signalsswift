@@ -1,11 +1,23 @@
 import {useEffect, useState} from 'react';
-import {useLocation, Link} from '@remix-run/react';
+import {useLocation, Link, useLoaderData} from '@remix-run/react';
 import img from '../../public/ss.png';
+import {LoaderArgs} from '@shopify/remix-oxygen';
+import {UserIcon} from './icons/UserIcon';
 
+export async function loader({context}: LoaderArgs) {
+  const {session, storefront} = context;
+  const customerAccessToken = await session.get('customerAccessToken');
+  const isLoggedIn = Boolean(customerAccessToken?.accessToken);
+
+  return {isLoggedIn};
+}
 function Header() {
+  const {isLoggedIn} = useLoaderData();
+
   const navigate = useLocation();
   const [index, setIndex] = useState(0);
   const [isMenuOpen, setMenu] = useState(false);
+
   useEffect(() => {
     switch (navigate.pathname) {
       case '/':
@@ -77,25 +89,44 @@ function Header() {
         </nav>
       </div>
       {/* Login and Sign up features */}
-      <div className="flex gap-4">
-        <Link to={'/login'}>
-          <button className="px-5 py-2 text-[#3164f5] -white rounded-md ">
-            Log In
-          </button>
-        </Link>
-        <Link to={'/signup'}>
-          <button className="px-5 py-2 bg-[#3164f5] text-white rounded-md ">
-            Sign Up
-          </button>
-        </Link>
-      </div>
+      {!isLoggedIn ? (
+        <div className="flex gap-4">
+          <Link to={'/login'}>
+            <button className="px-5 py-2 text-[#3164f5] -white rounded-md ">
+              Log In
+            </button>
+          </Link>
+          <Link to={'/signup'}>
+            <button className="px-5 py-2 bg-[#3164f5] text-white rounded-md ">
+              Sign Up
+            </button>
+          </Link>
+        </div>
+      ) : (
+        <div className="flex gap-3 items-center">
+          <span className="text-blue-500 bg-blue-400/20 px-1 rounded-md ">
+            Free Plan
+          </span>
+          <UserMenu />
+        </div>
+      )}
     </header>
   );
 }
 
 export default Header;
 
-function NavItem({to, index, order, children}) {
+function NavItem({
+  to,
+  index,
+  order,
+  children,
+}: {
+  to: string;
+  index: number;
+  order: number;
+  children: React.ReactNode;
+}) {
   return (
     <Link to={to}>
       <li
@@ -109,7 +140,13 @@ function NavItem({to, index, order, children}) {
   );
 }
 
-function MenuSvg({isMenuOpen, setMenu}) {
+function MenuSvg({
+  isMenuOpen,
+  setMenu,
+}: {
+  isMenuOpen: boolean;
+  setMenu: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
   return (
     <button className="block md:hidden" onClick={() => setMenu(!isMenuOpen)}>
       <svg
@@ -124,5 +161,31 @@ function MenuSvg({isMenuOpen, setMenu}) {
         />
       </svg>
     </button>
+  );
+}
+
+function UserMenu() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(!open)}>
+        <UserIcon className="text-[#3164f5] hover:text-[#3164f5]/60 active:scale-95" />
+      </button>
+      {open ? (
+        <div className="absolute top-12 right-0 bg-white rounded-md shadow-2xl">
+          <ul className="flex flex-col gap-2 px-6 py-4">
+            <Link to={'/account'}>
+              <li className="text-sm">Profile</li>
+            </Link>
+            <Link to={'/account/settings'}>
+              <li className="text-sm">Settings</li>
+            </Link>
+            <Link to={'/logout'}>
+              <li className="text-sm">Logout</li>
+            </Link>
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }

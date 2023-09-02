@@ -1,9 +1,75 @@
-import {Link, V2_MetaFunction} from '@remix-run/react';
+import {
+  json,
+  redirect,
+  type ActionArgs,
+  type LoaderArgs,
+  type V2_MetaFunction,
+} from '@shopify/remix-oxygen';
+import {Form, Link, useActionData} from '@remix-run/react';
 
+type ActionResponse = {
+  error: string | null;
+};
 export const meta: V2_MetaFunction = () => {
   return [{title: 'Log In'}];
 };
+export async function loader({context}: LoaderArgs) {
+  if (await context.session.get('customerAccessToken')) {
+    return redirect('/dashboard');
+  }
+  return json({});
+}
+
+export async function action({request, context}: ActionArgs) {
+  const {session, storefront} = context;
+
+  if (request.method !== 'POST') {
+    return json({error: 'Method not allowed'}, {status: 405});
+  }
+
+  try {
+    const form = await request.formData();
+    const email = String(form.has('email') ? form.get('email') : '');
+    const password = String(form.has('password') ? form.get('password') : '');
+    const validInputs = Boolean(email && password);
+
+    if (!validInputs) {
+      throw new Error('Please provide both an email and a password.');
+    }
+
+    const {customerAccessTokenCreate} = await storefront.mutate(
+      LOGIN_MUTATION,
+      {
+        variables: {
+          input: {email, password},
+        },
+      },
+    );
+
+    if (!customerAccessTokenCreate?.customerAccessToken?.accessToken) {
+      throw new Error(customerAccessTokenCreate?.customerUserErrors[0].message);
+    }
+
+    const {customerAccessToken} = customerAccessTokenCreate;
+    session.set('customerAccessToken', customerAccessToken);
+
+    return redirect('/dashboard', {
+      headers: {
+        'Set-Cookie': await session.commit(),
+      },
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      return json({error: error.message}, {status: 400});
+    }
+    return json({error}, {status: 400});
+  }
+}
+
 function LogIn() {
+  const data = useActionData<ActionResponse>();
+  const error = data?.error || null;
+
   return (
     <div className=" flex ">
       <div className="mx-auto mt-20 mb-36">
@@ -11,28 +77,48 @@ function LogIn() {
         <p className="text-stone-500 mb-4 max-w-xs">
           Welcome back! Explore the future with us
         </p>
-        <form action="#" className="flex flex-col gap-4 max-w-sm">
-          <label htmlFor="email">Email</label>
+        {error ? (
+          <p>
+            <mark>
+              <small>{error}</small>
+            </mark>
+          </p>
+        ) : (
+          <br />
+        )}
+        <Form method="POST" className="flex flex-col gap-4 max-w-sm">
+          <label htmlFor="email">Email address</label>
           <input
-            type="email"
-            placeholder="your email"
             id="email"
             name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="Email address"
+            aria-label="Email address"
+            autoFocus
             className="pl-4 p-2 rounded-md"
           />
-          <label htmlFor="pwd">Password</label>
+          <label htmlFor="password">Password</label>
           <input
+            id="password"
+            name="password"
             type="password"
-            placeholder="your password"
-            id="pwd"
-            name="pwd"
+            autoComplete="current-password"
+            placeholder="Password"
+            aria-label="Password"
+            minLength={8}
+            required
             className="pl-4 p-2 rounded-md"
           />
 
-          <button className="bg-blue-500 text-white py-2 rounded-md">
+          <button
+            type="submit"
+            className="bg-blue-500 text-white py-2 rounded-md"
+          >
             Log In
           </button>
-        </form>
+        </Form>
         <p className="py-4">
           Don&apos;t have an account?{' '}
           <Link className="text-blue-500" to="/signup">
@@ -45,3 +131,20 @@ function LogIn() {
 }
 
 export default LogIn;
+
+// NOTE: https://shopify.dev/docs/api/storefront/latest/mutations/customeraccesstokencreate
+const LOGIN_MUTATION = `#graphql
+  mutation login($input: CustomerAccessTokenCreateInput!) {
+    customerAccessTokenCreate(input: $input) {
+      customerUserErrors {
+        code
+        field
+        message
+      }
+      customerAccessToken {
+        accessToken
+        expiresAt
+      }
+    }
+  }
+` as const;
